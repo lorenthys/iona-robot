@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gespreksdoos App</title>
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     <style>
         body {
             font-family: Arial;
@@ -100,6 +99,10 @@
             color: #666;
             min-height: 20px;
         }
+        .error {
+            color: #d32f2f;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -109,6 +112,9 @@
     <div id="questions" class="grid"></div>
     <div id="answers" class="answers"></div>
     <div class="back" onclick="goBack()">⬅ Terug</div>
+
+    <!-- WebGazer script aan het EINDE van body voor betere lading -->
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
 
     <script>
         // ===== DATA =====
@@ -181,8 +187,9 @@
             speechSynthesis.speak(utterance);
         }
 
-        function updateStatus(text) {
+        function updateStatus(text, isError = false) {
             statusEl.textContent = text;
+            statusEl.className = isError ? "status error" : "status";
         }
 
         function loadQuestions() {
@@ -228,6 +235,7 @@
             qDiv.style.display = "flex";
             aDiv.style.display = "none";
             titleEl.textContent = "Kies een vraag";
+            clearGaze();
         }
 
         function clearGaze() {
@@ -259,7 +267,7 @@
             function nextPoint() {
                 if (current >= points.length) {
                     if (dot) dot.remove();
-                    updateStatus("Kalibratie klaar!");
+                    updateStatus("Kalibratie klaar! Oogbesturing actief.");
                     startEyeTracking();
                     return;
                 }
@@ -289,8 +297,7 @@
 
         function startEyeTracking() {
             isTracking = true;
-            updateStatus("Oogbesturing actief. Kijk 2 seconden naar een kaart.");
-            speak("Oogbesturing is actief. Kijk naar een kaart om te selecteren.");
+            speak("Oogbesturing is actief. Kijk 2 seconden naar een kaart om te selecteren.");
 
             webgazer.setGazeListener((data) => {
                 if (!data || !isTracking) return;
@@ -328,21 +335,42 @@
         function initWebGazer() {
             if (webGazerReady) return;
 
-            updateStatus("WebGazer laden...");
+            updateStatus("WebGazer initialiseren...");
             speak("Oogbesturing wordt gestart.");
 
-            // Wacht tot WebGazer geladen is
-            const checkWebGazer = setInterval(() => {
-                if (typeof webgazer !== 'undefined') {
-                    clearInterval(checkWebGazer);
-                    webgazer.setRegression('ridge')
-                           .setTracker('clmtrackr')
-                           .begin()
-                           .applyKalmanFilter(true);
-                    webGazerReady = true;
-                    startCalibration();
+            try {
+                // Forceer WebGazer om te laden
+                if (typeof webgazer === 'undefined') {
+                    updateStatus("Fout: WebGazer script niet geladen. Controleer je internetverbinding.", true);
+                    return;
                 }
-            }, 100);
+
+                // Wacht tot WebGazer klaar is
+                const checkReady = setInterval(() => {
+                    if (webgazer && webgazer.begin) {
+                        clearInterval(checkReady);
+                        webgazer.setRegression('ridge')
+                               .setTracker('clmtrackr')
+                               .begin()
+                               .applyKalmanFilter(true);
+                        webGazerReady = true;
+                        startCalibration();
+                    }
+                }, 200);
+
+                // Timeout na 8 seconden
+                setTimeout(() => {
+                    clearInterval(checkReady);
+                    if (!webGazerReady) {
+                        updateStatus("Fout: WebGazer laadt niet. Probeer de pagina te verversen of gebruik Chrome/Firefox.", true);
+                        speak("Er is een probleem met de oogbesturing. Probeer het later nog eens.");
+                    }
+                }, 8000);
+
+            } catch (e) {
+                updateStatus(`Fout: ${e.message}`, true);
+                console.error("WebGazer error:", e);
+            }
         }
 
         // Laad kaartjes direct bij opstarten
