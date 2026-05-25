@@ -1,219 +1,240 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Gespreksdoos App</title>
+
+<script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+
 <style>
-body { font-family: Arial; text-align: center; background:#f5f5f5; }
-.grid { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; padding:20px; }
-.card { width:160px; height:160px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; cursor:pointer; color:white; font-weight:bold; padding:10px; transition:0.3s; }
-.card.active-gaze {
-  transform: scale(1.08);
-  box-shadow: 0 0 25px rgba(255,255,255,0.9);
-  border: 6px solid yellow;
+
+body{
+    font-family: Arial;
+    text-align:center;
+    background:#f5f5f5;
+    margin:0;
+    padding:20px;
 }
-.card .timer {
-  width: 70%;
-  height: 10px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 10px;
-  margin-top:10px;
-  overflow:hidden;
+
+h2{
+    margin-bottom:20px;
 }
-.card .timer-fill {
-  height:100%;
-  width:0%;
-  background:yellow;
+
+.grid{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:15px;
+    padding:20px;
 }
-.answer.active-gaze {
-  transform: scale(1.08);
-  box-shadow: 0 0 25px rgba(0,0,0,0.4);
-  border: 6px solid orange;
+
+.card{
+    width:160px;
+    min-height:160px;
+    border-radius:16px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    cursor:pointer;
+    color:white;
+    font-weight:bold;
+    padding:10px;
+    transition:0.3s;
+    position:relative;
+    text-align:center;
 }
-.answer .timer {
-  width: 80%;
-  height: 10px;
-  background: #ddd;
-  border-radius: 10px;
-  margin:10px auto 0;
-  overflow:hidden;
+
+.answer{
+    background:white;
+    color:black;
 }
-.answer .timer-fill {
-  height:100%;
-  width:0%;
-  background:orange;
+
+.card.active-gaze,
+.answer.active-gaze{
+    transform:scale(1.08);
+    box-shadow:0 0 25px rgba(255,255,0,0.9);
+    border:6px solid yellow;
 }
-.answers { display:none; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:20px; }
-.answer { background:white; border-radius:10px; padding:10px; width:120px; cursor:pointer; }
-.back { margin-top:20px; cursor:pointer; font-size:18px; }
+
+.timer{
+    width:75%;
+    height:10px;
+    background:rgba(255,255,255,0.3);
+    border-radius:10px;
+    margin-top:12px;
+    overflow:hidden;
+}
+
+.answer .timer{
+    background:#ddd;
+}
+
+.timer-fill{
+    width:0%;
+    height:100%;
+    background:yellow;
+    transition:width 0.1s linear;
+}
+
+.answers{
+    display:none;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+}
+
+.back{
+    margin-top:20px;
+    font-size:20px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.eyeButton{
+    padding:15px 25px;
+    font-size:18px;
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+    background:#333;
+    color:white;
+    margin-bottom:20px;
+}
+
 </style>
+
 </head>
+
 <body>
 
 <h2 id="title">Kies een vraag</h2>
 
-<button onclick="startEyeTracking()" style="padding:15px; font-size:18px; border-radius:10px; cursor:pointer; margin-top:10px;">
+<button class="eyeButton" onclick="startEyeTracking()">
 👁️ Oogbesturing starten
 </button>
 
 <div id="questions" class="grid"></div>
+
 <div id="answers" class="answers"></div>
+
 <div class="back" onclick="goBack()">⬅ Terug</div>
 
-<script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
 <script>
 
-let gazeMode = false;
-let currentHover = null;
-let hoverTimer = null;
-
-function startEyeTracking(){
-
-  webgazer.setTracker("clmtrackr");
-
-  webgazer.begin();
-
-  webgazer.showPredictionPoints(true);
-
-  webgazer.setGazeListener((data, elapsedTime) => {
-
-    if (data == null) return;
-
-    const x = data.x;
-    const y = data.y;
-
-    const element = document.elementFromPoint(x, y);
-
-    if(element){
-
-      document.querySelectorAll('.card, .answer').forEach(el=>{
-        el.classList.remove('active-gaze');
-      });
-
-      if(
-        element.classList.contains('card') ||
-        element.classList.contains('answer')
-      ){
-
-        element.classList.add('active-gaze');
-
-      }
-
-    }
-
-  });
-
-  alert("Oogbesturing gestart 👁️");
-}
-
 function speak(text){
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'nl-NL';
-  utterance.rate = 0.9;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utterance);
+
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    utterance.lang = "nl-BE";
+
+    utterance.rate = 0.9;
+
+    speechSynthesis.speak(utterance);
 }
 
 const data = [
+
 {
-q:"Wanneer ben jij blij?", color:"#4A90E2", icon:"😊",
-answers:[{t:"vrienden",i:"👫"},{t:"familie",i:"👨‍👩‍👧"},{t:"buiten",i:"🌳"},{t:"muziek",i:"🎵"},{t:"tv",i:"📺"},{t:"eten",i:"🍽️"},{t:"cadeau",i:"🎁"},{t:"knuffel",i:"🤗"}]
-},
-{
-q:"Wat maakt jou boos?", color:"#4A90E2", icon:"😡",
-answers:[{t:"ruzie",i:"⚡"},{t:"lawaai",i:"🔊"},{t:"wachten",i:"⏳"},{t:"verlies",i:"❌"},{t:"moe",i:"😴"},{t:"honger",i:"🍽️"},{t:"pijn",i:"🤕"},{t:"drukte",i:"👥"}]
-},
-{
-q:"Wat maakt jou trots?", color:"#4A90E2", icon:"⭐",
-answers:[{t:"goed gedaan",i:"👍"},{t:"helpen",i:"🤝"},{t:"leren",i:"📚"},{t:"winnen",i:"🏆"},{t:"durven",i:"💪"},{t:"tekenen",i:"🎨"},{t:"zelfstandig",i:"🧍"},{t:"compliment",i:"👏"}]
-},
-{
-q:"Wat doe jij als je verdrietig bent?", color:"#4A90E2", icon:"😢",
-answers:[{t:"huilen",i:"😭"},{t:"praten",i:"💬"},{t:"knuffel",i:"🤗"},{t:"alleen",i:"🚶"},{t:"muziek",i:"🎵"},{t:"slapen",i:"😴"},{t:"wandelen",i:"🚶‍♂️"},{t:"hulp",i:"🆘"}]
-},
-{
-q:"Wie maakt jou blij?", color:"#4A90E2", icon:"👥",
-answers:[{t:"mama",i:"👩"},{t:"papa",i:"👨"},{t:"vriend",i:"👫"},{t:"familie",i:"👨‍👩‍👧"},{t:"begeleider",i:"🧑‍⚕️"},{t:"oma",i:"👵"},{t:"opa",i:"👴"},{t:"dier",i:"🐶"}]
-},
-{
-q:"Wat helpt als je boos bent?", color:"#4A90E2", icon:"😌",
-answers:[{t:"rust",i:"😌"},{t:"adem",i:"🌬️"},{t:"praten",i:"💬"},{t:"wandelen",i:"🚶"},{t:"muziek",i:"🎵"},{t:"alleen",i:"🚶"},{t:"knuffel",i:"🤗"},{t:"hulp",i:"🆘"}]
+q:"Wanneer ben jij blij?",
+color:"#4A90E2",
+icon:"😊",
+answers:[
+{t:"vrienden",i:"👫"},
+{t:"familie",i:"👨‍👩‍👧"},
+{t:"buiten",i:"🌳"},
+{t:"muziek",i:"🎵"},
+{t:"tv",i:"📺"},
+{t:"eten",i:"🍽️"},
+{t:"cadeau",i:"🎁"},
+{t:"knuffel",i:"🤗"}
+]
 },
 
 {
-q:"Wat eet jij graag?", color:"#E94E4E", icon:"🍕",
-answers:[{t:"pizza",i:"🍕"},{t:"friet",i:"🍟"},{t:"pasta",i:"🍝"},{t:"brood",i:"🍞"},{t:"soep",i:"🍲"},{t:"fruit",i:"🍎"},{t:"kip",i:"🍗"},{t:"ijs",i:"🍦"}]
-},
-{
-q:"Wat lust jij niet?", color:"#E94E4E", icon:"🚫",
-answers:[{t:"groenten",i:"🥦"},{t:"vis",i:"🐟"},{t:"vlees",i:"🥩"},{t:"soep",i:"🍲"},{t:"fruit",i:"🍎"},{t:"kaas",i:"🧀"},{t:"saus",i:"🥫"},{t:"nieuw",i:"❓"}]
-},
-{
-q:"Kies jij: frietjes of pizza?", color:"#E94E4E", icon:"🍟",
-answers:[{t:"frietjes",i:"🍟"},{t:"pizza",i:"🍕"},{t:"allebei",i:"😋"},{t:"geen",i:"🚫"},{t:"warm",i:"🔥"},{t:"koud",i:"❄️"},{t:"met saus",i:"🥫"},{t:"zonder",i:"🚫"}]
-},
-{
-q:"Wat drink jij graag?", color:"#E94E4E", icon:"🥤",
-answers:[{t:"water",i:"💧"},{t:"cola",i:"🥤"},{t:"sap",i:"🧃"},{t:"melk",i:"🥛"},{t:"thee",i:"🍵"},{t:"koffie",i:"☕"},{t:"zoet",i:"🍬"},{t:"koud",i:"❄️"}]
-},
-{
-q:"Wat eet jij graag als snack?", color:"#E94E4E", icon:"🍪",
-answers:[{t:"koek",i:"🍪"},{t:"chips",i:"🍟"},{t:"snoep",i:"🍬"},{t:"fruit",i:"🍎"},{t:"yoghurt",i:"🥛"},{t:"cake",i:"🍰"},{t:"ijs",i:"🍦"},{t:"noten",i:"🥜"}]
-},
-{
-q:"Wat eet jij op een feest?", color:"#E94E4E", icon:"🎉",
-answers:[{t:"taart",i:"🎂"},{t:"chips",i:"🍟"},{t:"pizza",i:"🍕"},{t:"snoep",i:"🍬"},{t:"fruit",i:"🍎"},{t:"ijs",i:"🍦"},{t:"hapjes",i:"🥪"},{t:"alles",i:"😋"}]
+q:"Wat maakt jou boos?",
+color:"#4A90E2",
+icon:"😡",
+answers:[
+{t:"ruzie",i:"⚡"},
+{t:"lawaai",i:"🔊"},
+{t:"wachten",i:"⏳"},
+{t:"verlies",i:"❌"},
+{t:"moe",i:"😴"},
+{t:"honger",i:"🍽️"},
+{t:"pijn",i:"🤕"},
+{t:"drukte",i:"👥"}
+]
 },
 
 {
-q:"Wat doe jij graag in je vrije tijd?", color:"#4CAF50", icon:"🎮",
-answers:[{t:"tv",i:"📺"},{t:"muziek",i:"🎵"},{t:"spelen",i:"🎲"},{t:"wandelen",i:"🚶"},{t:"sport",i:"⚽"},{t:"tekenen",i:"🎨"},{t:"gamen",i:"🎮"},{t:"lezen",i:"📚"}]
-},
-{
-q:"Speel jij graag een spel?", color:"#4CAF50", icon:"🎲",
-answers:[{t:"ja",i:"👍"},{t:"nee",i:"👎"},{t:"soms",i:"🤔"},{t:"bordspel",i:"🎲"},{t:"game",i:"🎮"},{t:"buiten",i:"🌳"},{t:"samen",i:"👫"},{t:"alleen",i:"🧍"}]
-},
-{
-q:"Wat kijk jij graag op tv?", color:"#4CAF50", icon:"📺",
-answers:[{t:"film",i:"🎬"},{t:"serie",i:"📺"},{t:"tekenfilm",i:"🧸"},{t:"sport",i:"⚽"},{t:"muziek",i:"🎵"},{t:"nieuws",i:"📰"},{t:"comedy",i:"😂"},{t:"natuur",i:"🌳"}]
-},
-{
-q:"Luister jij graag naar muziek?", color:"#4CAF50", icon:"🎵",
-answers:[{t:"ja",i:"👍"},{t:"nee",i:"👎"},{t:"pop",i:"🎵"},{t:"rap",i:"🎤"},{t:"rock",i:"🎸"},{t:"rustig",i:"😌"},{t:"luid",i:"🔊"},{t:"radio",i:"📻"}]
-},
-{
-q:"Wat doe jij graag buiten?", color:"#4CAF50", icon:"🌳",
-answers:[{t:"wandelen",i:"🚶"},{t:"fietsen",i:"🚲"},{t:"spelen",i:"⚽"},{t:"zitten",i:"🪑"},{t:"praten",i:"💬"},{t:"sport",i:"🏃"},{t:"kijken",i:"👀"},{t:"rust",i:"😌"}]
-},
-{
-q:"Wat is jouw favoriete hobby?", color:"#4CAF50", icon:"🎨",
-answers:[{t:"tekenen",i:"🎨"},{t:"muziek",i:"🎵"},{t:"sport",i:"⚽"},{t:"koken",i:"🍳"},{t:"lezen",i:"📚"},{t:"gamen",i:"🎮"},{t:"wandelen",i:"🚶"},{t:"puzzel",i:"🧩"}]
+q:"Wat eet jij graag?",
+color:"#E94E4E",
+icon:"🍕",
+answers:[
+{t:"pizza",i:"🍕"},
+{t:"friet",i:"🍟"},
+{t:"pasta",i:"🍝"},
+{t:"brood",i:"🍞"},
+{t:"soep",i:"🍲"},
+{t:"fruit",i:"🍎"},
+{t:"kip",i:"🍗"},
+{t:"ijs",i:"🍦"}
+]
 },
 
 {
-q:"Wat is je favoriete kleur?", color:"#FF9800", icon:"🎨",
-answers:[{t:"rood",i:"🟥"},{t:"blauw",i:"🟦"},{t:"groen",i:"🟩"},{t:"geel",i:"🟨"},{t:"roze",i:"🌸"},{t:"zwart",i:"⬛"},{t:"wit",i:"⬜"},{t:"regenboog",i:"🌈"}]
+q:"Wat doe jij graag buiten?",
+color:"#4CAF50",
+icon:"🌳",
+answers:[
+{t:"wandelen",i:"🚶"},
+{t:"voetballen",i:"⚽"},
+{t:"basketballen",i:"🏀"},
+{t:"tuin werken",i:"🌱"},
+{t:"dieren verzorgen",i:"🐄"},
+{t:"fietsen",i:"🚲"},
+{t:"rusten",i:"😌"},
+{t:"praten",i:"💬"}
+]
 },
+
 {
-q:"Wat is je favoriete dier?", color:"#FF9800", icon:"🐶",
-answers:[{t:"hond",i:"🐶"},{t:"kat",i:"🐱"},{t:"paard",i:"🐴"},{t:"vogel",i:"🐦"},{t:"vis",i:"🐟"},{t:"konijn",i:"🐰"},{t:"leeuw",i:"🦁"},{t:"dolfijn",i:"🐬"}]
+q:"Wat doe jij graag met vrienden?",
+color:"#FF9800",
+icon:"👫",
+answers:[
+{t:"praten",i:"💬"},
+{t:"lachen",i:"😄"},
+{t:"buiten spelen",i:"🌳"},
+{t:"go-carten",i:"🏎️"},
+{t:"uitgaan",i:"🎉"},
+{t:"eten",i:"🍽️"},
+{t:"gamen",i:"🎮"},
+{t:"niets",i:"😐"}
+]
 },
+
 {
-q:"Wat is je favoriete muziek?", color:"#FF9800", icon:"🎧",
-answers:[{t:"pop",i:"🎵"},{t:"rock",i:"🎸"},{t:"rap",i:"🎤"},{t:"dance",i:"💃"},{t:"rustig",i:"😌"},{t:"luid",i:"🔊"},{t:"radio",i:"📻"},{t:"alles",i:"😄"}]
-},
-{
-q:"Wat is jouw favoriete eten?", color:"#FF9800", icon:"🍕",
-answers:[{t:"pizza",i:"🍕"},{t:"friet",i:"🍟"},{t:"pasta",i:"🍝"},{t:"brood",i:"🍞"},{t:"fruit",i:"🍎"},{t:"soep",i:"🍲"},{t:"snack",i:"🍔"},{t:"alles",i:"😋"}]
-},
-{
-q:"Wat doe jij graag met vrienden?", color:"#FF9800", icon:"👫",
-answers:[{t:"praten",i:"💬"},{t:"lachen",i:"😄"},{t:"spelen",i:"🎲"},{t:"wandelen",i:"🚶"},{t:"eten",i:"🍽️"},{t:"tv",i:"📺"},{t:"sport",i:"⚽"},{t:"gamen",i:"🎮"}]
-},
-{
-q:"Wat maakt jouw dag leuk?", color:"#FF9800", icon:"☀️",
-answers:[{t:"lachen",i:"😄"},{t:"vrienden",i:"👫"},{t:"eten",i:"🍽️"},{t:"muziek",i:"🎵"},{t:"rust",i:"😌"},{t:"zon",i:"☀️"},{t:"activiteit",i:"🎯"},{t:"hulp",i:"🤝"}]
+q:"Wat is je favoriete dier?",
+color:"#FF9800",
+icon:"🐶",
+answers:[
+{t:"ezel",i:"🫏"},
+{t:"koe",i:"🐄"},
+{t:"varken",i:"🐷"},
+{t:"geit",i:"🐐"},
+{t:"kip",i:"🐔"},
+{t:"eend",i:"🦆"},
+{t:"draak",i:"🐉"},
+{t:"hond",i:"🐶"}
+]
 }
 
 ];
@@ -223,51 +244,176 @@ const aDiv = document.getElementById("answers");
 const title = document.getElementById("title");
 
 function loadQuestions(){
-qDiv.innerHTML = "";
-data.forEach((item, index)=>{
-let div = document.createElement("div");
-div.className = "card";
-div.style.background = item.color;
-div.innerHTML = `<div style="font-size:40px">${item.icon}</div><div>${item.q}</div><div class="timer"><div class="timer-fill"></div></div>`;
 
-// spreek vraag bij klik
-    div.onclick = ()=>{
-      speak(item.q);
-      showAnswers(index);
-    };
+    qDiv.innerHTML = "";
 
-qDiv.appendChild(div);
-});
+    data.forEach((item,index)=>{
+
+        const div = document.createElement("div");
+
+        div.className = "card";
+
+        div.style.background = item.color;
+
+        div.innerHTML = `
+            <div style="font-size:42px">${item.icon}</div>
+            <div>${item.q}</div>
+
+            <div class="timer">
+                <div class="timer-fill"></div>
+            </div>
+        `;
+
+        div.onclick = ()=>{
+
+            speak(item.q);
+
+            showAnswers(index);
+        };
+
+        qDiv.appendChild(div);
+
+    });
+
 }
 
 function showAnswers(index){
-qDiv.style.display="none";
-aDiv.style.display="flex";
 
-let item = data[index];
-title.innerText = item.q;
+    qDiv.style.display = "none";
 
-aDiv.innerHTML="";
-item.answers.forEach(ans=>{
-let div = document.createElement("div");
-div.className="answer";
-div.innerHTML = `<div style="font-size:30px">${ans.i}</div><div>${ans.t}</div><div class="timer"><div class="timer-fill"></div></div>`;
+    aDiv.style.display = "flex";
 
-// spreek antwoord bij klik
-      div.onclick = ()=> speak(ans.t);
+    const item = data[index];
 
-  aDiv.appendChild(div);
-});
+    title.innerText = item.q;
+
+    aDiv.innerHTML = "";
+
+    item.answers.forEach(ans=>{
+
+        const div = document.createElement("div");
+
+        div.className = "card answer";
+
+        div.innerHTML = `
+            <div style="font-size:38px">${ans.i}</div>
+            <div>${ans.t}</div>
+
+            <div class="timer">
+                <div class="timer-fill"></div>
+            </div>
+        `;
+
+        div.onclick = ()=>{
+
+            speak(ans.t);
+        };
+
+        aDiv.appendChild(div);
+
+    });
+
 }
 
 function goBack(){
-speak("terug");
-qDiv.style.display="flex";
-aDiv.style.display="none";
-title.innerText="Kies een vraag";
+
+    speak("terug");
+
+    qDiv.style.display = "flex";
+
+    aDiv.style.display = "none";
+
+    title.innerText = "Kies een vraag";
 }
 
 loadQuestions();
+
+let currentElement = null;
+let dwellTimeout = null;
+let progressInterval = null;
+
+function clearGaze(){
+
+    clearTimeout(dwellTimeout);
+
+    clearInterval(progressInterval);
+
+    document.querySelectorAll(".card").forEach(el=>{
+
+        el.classList.remove("active-gaze");
+
+        const fill = el.querySelector(".timer-fill");
+
+        if(fill){
+            fill.style.width = "0%";
+        }
+
+    });
+
+}
+
+function startEyeTracking(){
+
+    webgazer.setTracker("clmtrackr");
+
+    webgazer.begin();
+
+    webgazer.showPredictionPoints(true);
+
+    webgazer.setGazeListener((data)=>{
+
+        if(!data) return;
+
+        const x = data.x;
+        const y = data.y;
+
+        const rawElement = document.elementFromPoint(x,y);
+
+        const element = rawElement?.closest(".card");
+
+        if(!element){
+
+            clearGaze();
+
+            currentElement = null;
+
+            return;
+        }
+
+        if(currentElement !== element){
+
+            clearGaze();
+
+            currentElement = element;
+
+            element.classList.add("active-gaze");
+
+            const fill = element.querySelector(".timer-fill");
+
+            let progress = 0;
+
+            progressInterval = setInterval(()=>{
+
+                progress += 5;
+
+                if(fill){
+                    fill.style.width = progress + "%";
+                }
+
+            },100);
+
+            dwellTimeout = setTimeout(()=>{
+
+                element.click();
+
+            },2000);
+
+        }
+
+    });
+
+    alert("Oogbesturing gestart 👁️");
+}
 
 </script>
 
