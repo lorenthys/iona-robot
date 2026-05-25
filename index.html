@@ -114,63 +114,29 @@
 </head>
 <body>
     <h2 id="title">Kies een vraag</h2>
-    <button class="eyeButton" onclick="toggleEyeTracking()">👁️ Oogbesturing starten/stoppen</button>
+    <button class="eyeButton" onclick="initEyeTracking()">👁️ Oogbesturing starten</button>
     <div id="status" class="status"></div>
 
-    <div id="instructions" class="instructions" style="display:none;">
-        <h3>🔧 Oogbesturing werkt niet? Volg deze stappen:</h3>
+    <div id="instructions" class="instructions">
+        <h3>⚠️ Oogbesturing werkt niet? Geen probleem!</h3>
+        <p>Je kunt de app gewoon met je <strong>muis</strong> bedienen. Klik op de kaartjes om ze te selecteren.</p>
+        <p><strong>Als je oogbesturing wél wilt proberen:</strong></p>
         <ol>
-            <li><strong>Gebruik Chrome of Firefox</strong> (Edge/Safari werken vaak niet)</li>
-            <li><strong>Open via lokale webserver</strong>:
+            <li>Gebruik <strong>Chrome of Firefox</strong> (Edge/Safari werken niet)</li>
+            <li>Open deze pagina via een <strong>lokale webserver</strong>:
                 <ul>
-                    <li>Installeer <a href="https://code.visualstudio.com/" target="_blank">VS Code</a> + <a href="https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer" target="_blank">Live Server</a> extensie</li>
-                    <li>Of voer in terminal uit: <code>python -m http.server 8000</code> → Open <code>http://localhost:8000</code></li>
+                    <li>Installeer <a href="https://code.visualstudio.com/" target="_blank">VS Code</a> + <a href="https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer" target="_blank">Live Server</a> → Klik "Go Live"</li>
+                    <li>OF: Voer in terminal uit: <code>python -m http.server 8000</code> → Open <code>http://localhost:8000</code></li>
                 </ul>
             </li>
-            <li><strong>Geef camera-toestemming</strong> (klik op "Toestaan" in de pop-up)</li>
-            <li><strong>Zorg voor goed licht</strong> (WebGazer heeft een duidelijke camera-input nodig)</li>
+            <li>Geef <strong>camera-toestemming</strong> als je browser daarom vraagt</li>
+            <li>Zorg voor <strong>goed licht</strong> (WebGazer heeft een duidelijke camera-input nodig)</li>
         </ol>
     </div>
 
     <div id="questions" class="grid"></div>
     <div id="answers" class="answers"></div>
     <div class="back" onclick="goBack()">⬅ Terug</div>
-
-    <!-- Laad WebGazer van MEEDERDE CDN's voor betrouwbaarheid -->
-    <script>
-        // Probeer WebGazer te laden van verschillende CDN's
-        const webgazerScripts = [
-            "https://cdn.jsdelivr.net/npm/webgazer@2.0.0/webgazer.min.js",
-            "https://webgazer.cs.brown.edu/webgazer.js",
-            "https://unpkg.com/webgazer@2.0.0/webgazer.min.js"
-        ];
-
-        let webgazerLoaded = false;
-        let currentScriptIndex = 0;
-
-        function loadWebGazerScript() {
-            if (currentScriptIndex >= webgazerScripts.length) {
-                updateStatus("WebGazer kon niet geladen worden. Gebruik de muis om kaartjes te selecteren.", true);
-                document.getElementById("instructions").style.display = "block";
-                return;
-            }
-
-            const script = document.createElement("script");
-            script.src = webgazerScripts[currentScriptIndex];
-            script.onload = () => {
-                webgazerLoaded = true;
-                updateStatus("WebGazer geladen! Klik op de knop om te starten.", false, true);
-            };
-            script.onerror = () => {
-                currentScriptIndex++;
-                loadWebGazerScript();
-            };
-            document.body.appendChild(script);
-        }
-
-        // Start met laden van WebGazer
-        loadWebGazerScript();
-    </script>
 
     <script>
         // ===== DATA =====
@@ -226,13 +192,14 @@
         const aDiv = document.getElementById("answers");
         const titleEl = document.getElementById("title");
         const statusEl = document.getElementById("status");
+        const instructionsEl = document.getElementById("instructions");
 
         // ===== GLOBALE VARIABELEN =====
         let currentElement = null;
         let dwellTimeout = null;
         let progressInterval = null;
         let isTracking = false;
-        let webGazerReady = false;
+        let webGazerLoaded = false;
 
         // ===== FUNCTIES =====
         function speak(text) {
@@ -307,11 +274,35 @@
             currentElement = null;
         }
 
+        // ===== WEBGAZER INITIALISATIE (Nieuwe methode) =====
+        function loadWebGazer() {
+            if (webGazerLoaded) return;
+
+            // Probeer WebGazer te laden
+            const script = document.createElement('script');
+            script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
+            script.onload = function() {
+                webGazerLoaded = true;
+                updateStatus("WebGazer geladen! Klik op de knop om te starten.", false, true);
+                instructionsEl.style.display = "none";
+            };
+            script.onerror = function() {
+                updateStatus("WebGazer kon niet geladen worden. Gebruik de muis.", true);
+                instructionsEl.style.display = "block";
+            };
+            document.head.appendChild(script);
+        }
+
         function startCalibration() {
             updateStatus("Kalibratie gestart. Kijk naar de rode bolletjes.", false, false);
             speak("Kalibratie start nu. Kijk naar de rode bolletjes.");
 
             try {
+                // APARTE AANROEPEN (geen chaining!)
+                webgazer.setRegression('ridge');
+                webgazer.setTracker('clmtrackr');
+                webgazer.begin();
+                webgazer.applyKalmanFilter(true);
                 webgazer.clearData();
 
                 const points = [
@@ -351,7 +342,8 @@
                             nextPoint();
                         } catch (e) {
                             console.error("Kalibratie fout:", e);
-                            nextPoint(); // Ga door naar volgende punt
+                            current++;
+                            nextPoint();
                         }
                     }, 1500);
                 }
@@ -410,39 +402,31 @@
 
         function stopEyeTracking() {
             isTracking = false;
-            webGazerReady = false;
             clearGaze();
             updateStatus("Oogbesturing gestopt. Gebruik de muis.", false, false);
             speak("Oogbesturing gestopt");
         }
 
-        function toggleEyeTracking() {
-            if (!webgazerLoaded) {
-                updateStatus("WebGazer is nog niet geladen. Wacht een moment...", true);
-                return;
-            }
-
-            if (isTracking) {
-                stopEyeTracking();
-            } else {
-                if (!webGazerReady) {
-                    try {
-                        webgazer.setRegression('ridge')
-                               .setTracker('clmtrackr')
-                               .begin()
-                               .applyKalmanFilter(true);
-                        webGazerReady = true;
-                    } catch (e) {
-                        updateStatus("Fout bij initialisatie: " + e.message, true);
-                        return;
+        function initEyeTracking() {
+            if (!webGazerLoaded) {
+                loadWebGazer();
+                setTimeout(() => {
+                    if (webGazerLoaded) {
+                        startCalibration();
                     }
+                }, 2000);
+            } else {
+                if (isTracking) {
+                    stopEyeTracking();
+                } else {
+                    startCalibration();
                 }
-                startCalibration();
             }
         }
 
         // Laad kaartjes direct bij opstarten
         loadQuestions();
+        updateStatus("Klik op de knop om oogbesturing te starten (of gebruik de muis).", false, true);
     </script>
 </body>
 </html>
