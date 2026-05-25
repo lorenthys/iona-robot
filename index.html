@@ -84,14 +84,23 @@
             color: white;
             margin-bottom: 20px;
         }
+        /* 🔥 FIX 1: Bolletjes GROTER en OPVALLENDER */
         .calibration-dot {
-            width: 35px;
-            height: 35px;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
-            background: red;
+            background: #ff0000;
             position: fixed;
-            z-index: 9999;
+            z-index: 99999;
             pointer-events: none;
+            border: 3px solid #000;
+            box-shadow: 0 0 20px rgba(255,0,0,0.8);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
         .status {
             margin: 10px 0;
@@ -100,7 +109,12 @@
         }
         .success { color: #4CAF50; }
         .error { color: #d32f2f; font-weight: bold; }
-        .warning { color: #FF9800; }
+        .calibration-counter {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #d32f2f;
+        }
         .instructions {
             background: #fff;
             padding: 15px;
@@ -110,33 +124,45 @@
             text-align: left;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        #videoPreview {
+            width: 200px;
+            height: 150px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            margin: 10px auto;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <h2 id="title">Kies een vraag</h2>
     <button class="eyeButton" onclick="initEyeTracking()">👁️ Oogbesturing starten</button>
     <div id="status" class="status"></div>
+    <div id="calibrationCounter" class="calibration-counter"></div>
+    <video id="videoPreview" autoplay muted></video>
 
-    <div id="instructions" class="instructions">
-        <h3>⚠️ Oogbesturing werkt niet? Geen probleem!</h3>
-        <p>Je kunt de app gewoon met je <strong>muis</strong> bedienen. Klik op de kaartjes om ze te selecteren.</p>
+    <div id="instructions" class="instructions" style="display:none;">
+        <h3>⚠️ Camera werkt niet? Geen probleem!</h3>
+        <p>Je kunt de app gewoon met je <strong>muis of vinger</strong> bedienen.</p>
         <p><strong>Als je oogbesturing wél wilt proberen:</strong></p>
         <ol>
-            <li>Gebruik <strong>Chrome of Firefox</strong> (Edge/Safari werken niet)</li>
-            <li>Open deze pagina via een <strong>lokale webserver</strong>:
+            <li><strong>Gebruik Chrome of Firefox op een LAPTOP/PC</strong> (mobiel/telefoon werkt NAUWELIJKS met WebGazer)</li>
+            <li>Open via <strong>lokale webserver</strong>:
                 <ul>
                     <li>Installeer <a href="https://code.visualstudio.com/" target="_blank">VS Code</a> + <a href="https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer" target="_blank">Live Server</a> → Klik "Go Live"</li>
                     <li>OF: Voer in terminal uit: <code>python -m http.server 8000</code> → Open <code>http://localhost:8000</code></li>
                 </ul>
             </li>
-            <li>Geef <strong>camera-toestemming</strong> als je browser daarom vraagt</li>
-            <li>Zorg voor <strong>goed licht</strong> (WebGazer heeft een duidelijke camera-input nodig)</li>
+            <li>Geef <strong>camera-toestemming</strong> (klik op "Toestaan" in de pop-up)</li>
+            <li>Zorg voor <strong>goed licht</strong> en kijk recht in de camera</li>
         </ol>
     </div>
 
     <div id="questions" class="grid"></div>
     <div id="answers" class="answers"></div>
     <div class="back" onclick="goBack()">⬅ Terug</div>
+
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
 
     <script>
         // ===== DATA =====
@@ -192,14 +218,17 @@
         const aDiv = document.getElementById("answers");
         const titleEl = document.getElementById("title");
         const statusEl = document.getElementById("status");
+        const counterEl = document.getElementById("calibrationCounter");
         const instructionsEl = document.getElementById("instructions");
+        const videoPreview = document.getElementById("videoPreview");
 
         // ===== GLOBALE VARIABELEN =====
         let currentElement = null;
         let dwellTimeout = null;
         let progressInterval = null;
         let isTracking = false;
-        let webGazerLoaded = false;
+        let webGazerReady = false;
+        let cameraAccess = false;
 
         // ===== FUNCTIES =====
         function speak(text) {
@@ -215,6 +244,10 @@
         function updateStatus(text, isError = false, isSuccess = false) {
             statusEl.textContent = text;
             statusEl.className = "status " + (isError ? "error" : isSuccess ? "success" : "");
+        }
+
+        function updateCounter(text) {
+            counterEl.textContent = text;
         }
 
         function loadQuestions() {
@@ -274,36 +307,57 @@
             currentElement = null;
         }
 
-        // ===== WEBGAZER INITIALISATIE (Nieuwe methode) =====
-        function loadWebGazer() {
-            if (webGazerLoaded) return;
-
-            // Probeer WebGazer te laden
-            const script = document.createElement('script');
-            script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
-            script.onload = function() {
-                webGazerLoaded = true;
-                updateStatus("WebGazer geladen! Klik op de knop om te starten.", false, true);
-                instructionsEl.style.display = "none";
-            };
-            script.onerror = function() {
-                updateStatus("WebGazer kon niet geladen worden. Gebruik de muis.", true);
+        // ===== CAMERA CHECK =====
+        async function checkCamera() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                updateStatus("Je browser ondersteunt geen camera-toegang.", true);
                 instructionsEl.style.display = "block";
-            };
-            document.head.appendChild(script);
+                return false;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user", width: 640, height: 480 },
+                    audio: false
+                });
+                cameraAccess = true;
+                videoPreview.srcObject = stream;
+                videoPreview.style.display = "block";
+                updateStatus("Camera toegang verkregen! Kalibratie start nu...", false, true);
+                return true;
+            } catch (err) {
+                updateStatus("Camera-toegang geweigerd: " + err.message, true);
+                instructionsEl.style.display = "block";
+                return false;
+            }
         }
 
+        function stopCamera() {
+            if (videoPreview.srcObject) {
+                videoPreview.srcObject.getTracks().forEach(track => track.stop());
+                videoPreview.style.display = "none";
+            }
+        }
+
+        // ===== WEBGAZER KALIBRATIE (GEFIXT!) =====
         function startCalibration() {
             updateStatus("Kalibratie gestart. Kijk naar de rode bolletjes.", false, false);
+            updateCounter("Bolletje 1/5");
             speak("Kalibratie start nu. Kijk naar de rode bolletjes.");
 
             try {
-                // APARTE AANROEPEN (geen chaining!)
+                // 🔥 FIX 2: ZORG DAT WEBGAZER KLAAR IS
+                if (typeof webgazer === 'undefined' || !webgazer.begin) {
+                    updateStatus("WebGazer is niet correct geladen. Probeer de pagina te verversen.", true);
+                    return;
+                }
+
                 webgazer.setRegression('ridge');
                 webgazer.setTracker('clmtrackr');
                 webgazer.begin();
                 webgazer.applyKalmanFilter(true);
                 webgazer.clearData();
+                webgazer.showPredictionPoints(false);
 
                 const points = [
                     {x: 10, y: 10}, {x: 90, y: 10},
@@ -318,7 +372,9 @@
                     if (current >= points.length) {
                         if (dot) dot.remove();
                         updateStatus("Kalibratie klaar! Oogbesturing actief.", false, true);
+                        updateCounter("");
                         startEyeTracking();
+                        stopCamera();
                         return;
                     }
 
@@ -330,7 +386,9 @@
                     dot.style.left = `${p.x}%`;
                     dot.style.top = `${p.y}%`;
                     document.body.appendChild(dot);
+                    updateCounter(`Bolletje ${current + 1}/5 - Kijk hier!`);
 
+                    // 🔥 FIX 3: LANGERE TIJD (3 seconden) + CONSOLE LOG
                     setTimeout(() => {
                         try {
                             const rect = dot.getBoundingClientRect();
@@ -338,6 +396,7 @@
                                 rect.left + rect.width/2,
                                 rect.top + rect.height/2
                             );
+                            console.log(`Bolletje ${current + 1} opgeslagen op (${rect.left + rect.width/2}, ${rect.top + rect.height/2})`);
                             current++;
                             nextPoint();
                         } catch (e) {
@@ -345,13 +404,14 @@
                             current++;
                             nextPoint();
                         }
-                    }, 1500);
+                    }, 3000); // 🔥 VERHOOGD VAN 1500ms NAAR 3000ms
                 }
 
                 nextPoint();
             } catch (e) {
                 updateStatus("Fout bij kalibratie: " + e.message, true);
                 console.error("Kalibratie error:", e);
+                stopCamera();
             }
         }
 
@@ -397,6 +457,7 @@
             } catch (e) {
                 updateStatus("Fout bij eye-tracking: " + e.message, true);
                 console.error("Eye tracking error:", e);
+                stopCamera();
             }
         }
 
@@ -405,22 +466,38 @@
             clearGaze();
             updateStatus("Oogbesturing gestopt. Gebruik de muis.", false, false);
             speak("Oogbesturing gestopt");
+            stopCamera();
         }
 
-        function initEyeTracking() {
-            if (!webGazerLoaded) {
-                loadWebGazer();
-                setTimeout(() => {
-                    if (webGazerLoaded) {
-                        startCalibration();
-                    }
-                }, 2000);
-            } else {
-                if (isTracking) {
-                    stopEyeTracking();
-                } else {
-                    startCalibration();
+        // ===== HOOFDFUNCTIE =====
+        async function initEyeTracking() {
+            if (isTracking) {
+                stopEyeTracking();
+                return;
+            }
+
+            updateStatus("Camera controleren...", false, false);
+            updateCounter("");
+
+            // Eerst camera checken
+            const hasCamera = await checkCamera();
+            if (!hasCamera) {
+                updateStatus("Geen camera-toegang. Gebruik de muis.", true);
+                return;
+            }
+
+            // Dan WebGazer initialiseren
+            try {
+                if (typeof webgazer === 'undefined') {
+                    updateStatus("WebGazer laadt niet. Probeer de pagina te verversen.", true);
+                    return;
                 }
+                webGazerReady = true;
+                startCalibration();
+            } catch (e) {
+                updateStatus("Fout bij WebGazer: " + e.message, true);
+                console.error("WebGazer error:", e);
+                stopCamera();
             }
         }
 
